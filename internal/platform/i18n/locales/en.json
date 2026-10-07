@@ -1,0 +1,17 @@
+{
+  "health.live": "Service is live",
+  "health.ready": "Service is ready",
+  "release_notes.find.success": "Release notes retrieved successfully",
+  "release_notes.find_by_id.success": "Release note retrieved successfully",
+  "release_notes.create.success": "Release note created successfully",
+  "release_notes.update.success": "Release note updated successfully",
+  "release_notes.delete.success": "Release note deleted successfully",
+  "release_notes.not_found": "Release note not found",
+  "release_notes.invalid_id": "Release note ID is invalid",
+  "release_notes.invalid_payload": "Release note payload is invalid",
+  "release_notes.create.failed": "Failed to create release note",
+  "release_notes.update.failed": "Failed to update release note",
+  "error.internal": "Internal server error",
+  "error.not_found": "Route not found",
+  "error.method_not_allowed": "HTTP method is not allowed"
+}

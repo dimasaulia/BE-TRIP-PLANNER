@@ -1,0 +1,17 @@
+{
+  "health.live": "Layanan aktif",
+  "health.ready": "Layanan siap",
+  "release_notes.find.success": "Daftar catatan rilis berhasil diambil",
+  "release_notes.find_by_id.success": "Catatan rilis berhasil diambil",
+  "release_notes.create.success": "Catatan rilis berhasil dibuat",
+  "release_notes.update.success": "Catatan rilis berhasil diperbarui",
+  "release_notes.delete.success": "Catatan rilis berhasil dihapus",
+  "release_notes.not_found": "Catatan rilis tidak ditemukan",
+  "release_notes.invalid_id": "ID catatan rilis tidak valid",
+  "release_notes.invalid_payload": "Payload catatan rilis tidak valid",
+  "release_notes.create.failed": "Gagal membuat catatan rilis",
+  "release_notes.update.failed": "Gagal memperbarui catatan rilis",
+  "error.internal": "Terjadi kesalahan pada server",
+  "error.not_found": "Rute tidak ditemukan",
+  "error.method_not_allowed": "Metode HTTP tidak diizinkan"
+}
