@@ -8,19 +8,56 @@ package app
 
 import (
 	"context"
+	"github.com/open-suite/boilerplate-golang/internal/modules/auth"
+	controllers3 "github.com/open-suite/boilerplate-golang/internal/modules/auth/controllers"
+	repositories3 "github.com/open-suite/boilerplate-golang/internal/modules/auth/repositories"
+	services3 "github.com/open-suite/boilerplate-golang/internal/modules/auth/services"
+	"github.com/open-suite/boilerplate-golang/internal/modules/calendar"
+	controllers10 "github.com/open-suite/boilerplate-golang/internal/modules/calendar/controllers"
+	repositories8 "github.com/open-suite/boilerplate-golang/internal/modules/calendar/repositories"
+	services9 "github.com/open-suite/boilerplate-golang/internal/modules/calendar/services"
 	"github.com/open-suite/boilerplate-golang/internal/modules/health"
 	"github.com/open-suite/boilerplate-golang/internal/modules/health/controllers"
 	"github.com/open-suite/boilerplate-golang/internal/modules/health/repositories"
 	"github.com/open-suite/boilerplate-golang/internal/modules/health/services"
+	"github.com/open-suite/boilerplate-golang/internal/modules/invites"
+	controllers5 "github.com/open-suite/boilerplate-golang/internal/modules/invites/controllers"
+	repositories5 "github.com/open-suite/boilerplate-golang/internal/modules/invites/repositories"
+	services5 "github.com/open-suite/boilerplate-golang/internal/modules/invites/services"
+	"github.com/open-suite/boilerplate-golang/internal/modules/library"
+	controllers6 "github.com/open-suite/boilerplate-golang/internal/modules/library/controllers"
+	repositories6 "github.com/open-suite/boilerplate-golang/internal/modules/library/repositories"
+	services6 "github.com/open-suite/boilerplate-golang/internal/modules/library/services"
+	realtime2 "github.com/open-suite/boilerplate-golang/internal/modules/realtime"
+	controllers9 "github.com/open-suite/boilerplate-golang/internal/modules/realtime/controllers"
 	"github.com/open-suite/boilerplate-golang/internal/modules/releasenotes"
 	controllers2 "github.com/open-suite/boilerplate-golang/internal/modules/releasenotes/controllers"
 	repositories2 "github.com/open-suite/boilerplate-golang/internal/modules/releasenotes/repositories"
 	services2 "github.com/open-suite/boilerplate-golang/internal/modules/releasenotes/services"
+	"github.com/open-suite/boilerplate-golang/internal/modules/schedule"
+	controllers7 "github.com/open-suite/boilerplate-golang/internal/modules/schedule/controllers"
+	repositories7 "github.com/open-suite/boilerplate-golang/internal/modules/schedule/repositories"
+	services7 "github.com/open-suite/boilerplate-golang/internal/modules/schedule/services"
+	"github.com/open-suite/boilerplate-golang/internal/modules/trips"
+	controllers4 "github.com/open-suite/boilerplate-golang/internal/modules/trips/controllers"
+	repositories4 "github.com/open-suite/boilerplate-golang/internal/modules/trips/repositories"
+	services4 "github.com/open-suite/boilerplate-golang/internal/modules/trips/services"
+	"github.com/open-suite/boilerplate-golang/internal/modules/uploads"
+	controllers8 "github.com/open-suite/boilerplate-golang/internal/modules/uploads/controllers"
+	services8 "github.com/open-suite/boilerplate-golang/internal/modules/uploads/services"
 	"github.com/open-suite/boilerplate-golang/internal/platform/config"
+	"github.com/open-suite/boilerplate-golang/internal/platform/crypto"
 	"github.com/open-suite/boilerplate-golang/internal/platform/database"
+	"github.com/open-suite/boilerplate-golang/internal/platform/google"
 	"github.com/open-suite/boilerplate-golang/internal/platform/i18n"
+	"github.com/open-suite/boilerplate-golang/internal/platform/realtime"
 	"github.com/open-suite/boilerplate-golang/internal/platform/redis"
+	"github.com/open-suite/boilerplate-golang/internal/platform/storage"
+	"github.com/open-suite/boilerplate-golang/internal/shared/access"
+	"github.com/open-suite/boilerplate-golang/internal/shared/attachments"
+	"github.com/open-suite/boilerplate-golang/internal/shared/middleware"
 	"github.com/open-suite/boilerplate-golang/internal/shared/response"
+	"github.com/open-suite/boilerplate-golang/internal/shared/syncqueue"
 )
 
 // Injectors from wire.go:
@@ -44,6 +81,7 @@ func Initialize(ctx context.Context) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	hub := realtime.NewHub(logger)
 	healthRepository := repositories.NewHealthRepository(databaseDatabase, redisRedis)
 	healthService := services.NewHealthService(healthRepository, logger)
 	healthController := controllers.NewHealthController(healthService, sender, logger)
@@ -52,7 +90,49 @@ func Initialize(ctx context.Context) (*App, error) {
 	releaseNoteService := services2.NewReleaseNoteService(releaseNoteRepository, logger)
 	releaseNoteController := controllers2.NewReleaseNoteController(releaseNoteService, sender, logger)
 	releaseNoteModuleImpl := releasenotes.NewReleaseNoteModule(releaseNoteController)
-	v := ProvideModules(healthModuleImpl, releaseNoteModuleImpl)
-	app := New(configConfig, logger, sender, databaseDatabase, redisRedis, v)
+	authRepository := repositories3.NewAuthRepository(databaseDatabase, logger)
+	client := google.New(configConfig)
+	keys, err := crypto.New(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	authService := services3.NewAuthService(authRepository, client, keys, configConfig, logger)
+	authController := controllers3.NewAuthController(authService, sender, configConfig, logger)
+	sessionResolver := ProvideSessionResolver(authService)
+	middlewareAuth := middleware.NewAuth(sessionResolver, sender, configConfig)
+	limits := middleware.NewLimits(configConfig, sender)
+	authModuleImpl := auth.NewAuthModule(authController, authService, middlewareAuth, limits, configConfig, logger)
+	tripRepository := repositories4.NewTripRepository(databaseDatabase, logger)
+	service := access.NewService(databaseDatabase)
+	store := storage.New(configConfig)
+	queue := syncqueue.NewQueue(databaseDatabase)
+	attachmentsService := attachments.NewService(databaseDatabase, store, configConfig, logger)
+	tripService := services4.NewTripService(tripRepository, databaseDatabase, service, hub, store, queue, attachmentsService, logger)
+	tripController := controllers4.NewTripController(tripService, sender, logger)
+	tripModuleImpl := trips.NewTripModule(tripController, middlewareAuth)
+	inviteRepository := repositories5.NewInviteRepository(databaseDatabase, logger)
+	inviteService := services5.NewInviteService(inviteRepository, databaseDatabase, service, hub, configConfig, logger)
+	inviteController := controllers5.NewInviteController(inviteService, sender, logger)
+	inviteModuleImpl := invites.NewInviteModule(inviteController, middlewareAuth, limits)
+	libraryRepository := repositories6.NewLibraryRepository(databaseDatabase, logger)
+	libraryService := services6.NewLibraryService(libraryRepository, databaseDatabase, service, hub, attachmentsService, queue, logger)
+	libraryController := controllers6.NewLibraryController(libraryService, sender, logger)
+	libraryModuleImpl := library.NewLibraryModule(libraryController, middlewareAuth)
+	scheduleRepository := repositories7.NewScheduleRepository(databaseDatabase, logger)
+	scheduleService := services7.NewScheduleService(scheduleRepository, databaseDatabase, service, hub, queue, configConfig, logger)
+	scheduleController := controllers7.NewScheduleController(scheduleService, sender, logger)
+	scheduleModuleImpl := schedule.NewScheduleModule(scheduleController, middlewareAuth, limits)
+	uploadService := services8.NewUploadService(service, attachmentsService, store, logger)
+	uploadController := controllers8.NewUploadController(uploadService, sender, configConfig, logger)
+	uploadModuleImpl := uploads.NewUploadModule(uploadController, uploadService, middlewareAuth, limits, logger)
+	realtimeController := controllers9.NewRealtimeController(hub, service, sender, configConfig, logger)
+	realtimeModuleImpl := realtime2.NewRealtimeModule(realtimeController, middlewareAuth)
+	calendarRepository := repositories8.NewCalendarRepository(databaseDatabase, logger)
+	calendarService := services9.NewCalendarService(calendarRepository, databaseDatabase, service, client, keys, logger)
+	calendarController := controllers10.NewCalendarController(calendarService, sender, configConfig, logger)
+	worker := services9.NewWorker(calendarRepository, client, keys, configConfig, logger)
+	calendarModuleImpl := calendar.NewCalendarModule(calendarController, worker, middlewareAuth, limits)
+	v := ProvideModules(healthModuleImpl, releaseNoteModuleImpl, authModuleImpl, tripModuleImpl, inviteModuleImpl, libraryModuleImpl, scheduleModuleImpl, uploadModuleImpl, realtimeModuleImpl, calendarModuleImpl)
+	app := New(configConfig, logger, sender, databaseDatabase, redisRedis, hub, v)
 	return app, nil
 }

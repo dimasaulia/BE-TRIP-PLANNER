@@ -3,6 +3,8 @@ package database
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-suite/boilerplate-golang/internal/platform/config"
 	"github.com/open-suite/boilerplate-golang/internal/platform/logger"
@@ -48,4 +50,42 @@ func (d *Database) Ping(ctx context.Context) error {
 func (d *Database) Close() error {
 	d.Pool.Close()
 	return nil
+}
+
+type txKey struct{}
+
+// Querier is satisfied by both the pool and a transaction.
+type Querier interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// Q returns the transaction carried by ctx (see InTx) or the pool, so
+// repositories run unchanged inside and outside a transaction.
+func (d *Database) Q(ctx context.Context) Querier {
+	if tx, ok := ctx.Value(txKey{}).(pgx.Tx); ok {
+		return tx
+	}
+	return d.Pool
+}
+
+// InTx runs fn inside one transaction; repositories called with the context
+// passed to fn join it. A nested call reuses the outer transaction.
+func (d *Database) InTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	if _, ok := ctx.Value(txKey{}).(pgx.Tx); ok {
+		return fn(ctx)
+	}
+
+	tx, err := d.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := fn(context.WithValue(ctx, txKey{}, tx)); err != nil {
+		_ = tx.Rollback(context.WithoutCancel(ctx))
+		return err
+	}
+
+	return tx.Commit(ctx)
 }

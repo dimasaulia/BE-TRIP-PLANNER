@@ -6,3 +6,4 @@ air-build.log
 .env
 .vscode
 Makefile
+uploads/

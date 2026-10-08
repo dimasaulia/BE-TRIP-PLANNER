@@ -22,6 +22,7 @@ func RequestContext(next http.Handler) http.Handler {
 		ctx := requestctx.WithRequestID(r.Context(), requestID)
 		ctx = requestctx.WithLanguage(ctx, parseLanguage(r.Header.Get("Accept-Language")))
 		ctx = requestctx.WithStartTime(ctx, time.Now())
+		ctx = requestctx.WithClientID(ctx, clientID(r.Header.Get("X-Client-Id")))
 
 		w.Header().Set(requestIDHeader, requestID)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -58,4 +59,12 @@ func newRequestID() string {
 
 	encoded := hex.EncodeToString(bytes)
 	return encoded[0:8] + "-" + encoded[8:12] + "-" + encoded[12:16] + "-" + encoded[16:20] + "-" + encoded[20:32]
+}
+
+func clientID(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) > 64 {
+		return value[:64]
+	}
+	return value
 }
