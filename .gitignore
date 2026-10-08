@@ -1,9 +1,9 @@
-tmp/
+/tmp/
 .logs/
-logs/
+/logs/
 air-build.log
 .DS_Store
 .env
 .vscode
 Makefile
-uploads/
+/uploads/
