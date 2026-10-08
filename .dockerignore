@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+!.env.example
+.logs
+logs
+uploads
+tmp
+air-build.log
+.vscode
+.DS_Store
+docker-compose.yml
+Dockerfile
