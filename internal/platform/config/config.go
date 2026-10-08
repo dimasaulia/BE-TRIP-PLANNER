@@ -115,7 +115,8 @@ func Load() Config {
 			MaxConnIdleTime: durationEnv("DATABASE_MAX_CONN_IDLE_TIME", 30*time.Minute),
 		},
 		Redis: RedisConfig{
-			Addr:     env("REDIS_ADDR", "localhost:6379"),
+			// Empty disables Redis; it is only checked by /health/ready.
+			Addr:     env("REDIS_ADDR", ""),
 			Username: env("REDIS_USERNAME", ""),
 			Password: env("REDIS_PASSWORD", ""),
 			DB:       intEnv("REDIS_DB", 0),
